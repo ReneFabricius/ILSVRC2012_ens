@@ -17,7 +17,21 @@ def ensemble_networks():
     parser.add_argument('-network_outputs', type=str, required=True, help='path to networks outputs folder')
     parser.add_argument('-outputs_folder', type=str, required=True, help='path to folder for storing outputs')
     parser.add_argument('-min_ensemble_size', default=2, type=int, help='minimal number of networks in ensemble')
+    parser.add_argument('-test_normality', dest='test_normality', action='store_true',
+                        help='enables normality testing for LDA predictors')
+    parser.add_argument('-no_test_normality', dest='test_normality', action='store_false',
+                        help='disables normality testing for LDA predictors')
+    parser.add_argument('-double_precision', dest='double_precision', action='store_true',
+                        help='enables double precision')
+    parser.add_argument('-single_precision', dest='double_precision', action='store_false',
+                        help='enables single precision')
+    parser.add_argument('-load_models', dest='load_models', action='store_true',
+                        help='enables model loading if available')
+    parser.add_argument('-no_load_models', dest='load_models', action='store_false',
+                        help='disables model loading')
+    parser.set_defaults(test_normality=True, double_precision=False, load_models=False)
     parser.add_argument('-device', type=str, default='cpu', help='device on which to execute the script')
+    parser.add_argument('-topls', type=int, nargs="+", default=[5], help="list of topl values to test")
     args = parser.parse_args()
 
     train = "val_outputs"
@@ -27,7 +41,7 @@ def ensemble_networks():
     model = "model"
     targets = "targets.npy"
     order = "order.txt"
-    topls = [5, 6, 7, 8, 9, 10]
+    topls = args.topls
 
     net_val_outputs = os.path.join(args.network_outputs, train)
     net_test_outputs = os.path.join(args.network_outputs, test)
@@ -63,10 +77,17 @@ def ensemble_networks():
                 order_fl_test.close()
 
                 try:
-                    ensemble_general_test(net_val_outputs, net_test_outputs, targets, order, outputs_fold, models_fold,
-                                          [m1, m2, m2_iter, bc], combining_topl=topl, save_coefs=True, verbose=False,
-                                          test_normality=True, save_pvals=True, fit_on_penultimate=True,
-                                          double_precision=True)
+                    if args.load_models and os.path.isfile(os.path.join(models_fold, 'models')):
+                        ensemble_general_test(net_val_outputs, net_test_outputs, targets, order, outputs_fold,
+                                              models_fold, [m1, m2, m2_iter, bc], combining_topl=topl, save_coefs=True,
+                                              verbose=False, test_normality=args.test_normality, save_pvals=True,
+                                              fit_on_penultimate=True, double_precision=args.double_precision,
+                                              models_load_file=os.path.join(models_fold, 'models'))
+                    else:
+                        ensemble_general_test(net_val_outputs, net_test_outputs, targets, order, outputs_fold,
+                                              models_fold, [m1, m2, m2_iter, bc], combining_topl=topl, save_coefs=True,
+                                              verbose=False, test_normality=args.test_normality, save_pvals=True,
+                                              fit_on_penultimate=True, double_precision=args.double_precision)
 
                 finally:
                     os.remove(order_file_val)
